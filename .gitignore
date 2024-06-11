@@ -1,4 +1,5 @@
 *.xlsx
 *.xlsx#
-*.md
+out.md
+*ISA*.md
 *.pdf
