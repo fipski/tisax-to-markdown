@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
+import pdb
 import argparse
 import pandas as pd
 import re
-from enum import Enum
-
 
 
 parser = argparse.ArgumentParser()
@@ -15,7 +14,7 @@ parser.add_argument(
     required=True,
 )
 parser.add_argument(
-"-o",
+    "-o",
     "--output",
     help="Output Markdown File",
     required=True,
@@ -26,22 +25,55 @@ parser.add_argument(
     help="Tisax Version",
     required=True,
 )
+parser.add_argument(
+    "-p",
+    "--prototype",
+    action="store_true",
+    help="Export Controls for Prototype Protection",
+    required=False,
+)
+parser.add_argument(
+    "-d",
+    "--data_protection",
+    action="store_true",
+    help="Export Controls for Data Protection",
+    required=False,
+)
 
 args = parser.parse_args()
 
-skiprows = None
-sheet_name = None
-nrows = None
-column_indices = {}
+def c2int(char: str) -> int:
+    return ord(char) - 64
+
+excel_inidces = {
+    "skiprows": 1,  # first row is a title
+    "sheet_infosec": 4,  # 5th sheet
+    "nrows_infosec": 59,
+    "sheet_prototype": 5,
+    "sheet_data_protection": 6,
+    "nrows_data_protection": 5,
+    "nrows_prototype": 30,
+    "controlnum": 3,  # D
+    "controlquestion": 8,
+    "goal": ord("I")-64,
+    "requirement_must": 10,
+    "requirement_should": 11,
+    "requirement_high": 12,
+    "requirement_very_high": 13,
+}  # For ISA6_DE_6
 
 
 match args.version:
     case "6_DE":
-        skiprows = 1  # first row is a title
-        sheet_name = 4  # 5th sheet
-        nrows = None
 
-        column_indices = {
+        excel_inidces = {
+            "skiprows": 1,  # first row is a title
+            "sheet_infosec": 4,  # 5th sheet
+            "nrows_infosec": None,
+            "sheet_prototype": 5,
+            "nrows_prototype": None,
+            "sheet_data_protection": 6,
+            "nrows_data_protection": 21,
             "controlnum": 2,  # C
             "controlquestion": 7,
             "goal": 8,
@@ -51,70 +83,116 @@ match args.version:
             "requirement_very_high": 12,
         }  # For ISA6_DE_6
     case "5_1_DE":
-        skiprows = 1  # first row is a title
-        sheet_name = 4  # 5th sheet
-        nrows = 59
-
-        column_indices = {
-            "controlnum": 3,  # D
-            "controlquestion": 8,
-            "goal": 9,
-            "requirement_must": 10,
-            "requirement_should": 11,
-            "requirement_high": 12,
-            "requirement_very_high": 13,
-        }  # For ISA6_DE_6
+        pass # default dict
     case _:
-        raise Exception("Sorry, Excel Columns not yet defined in Script. Only version 6_DE and 5_1_DE implemented.")
-
-df = pd.read_excel(args.input, skiprows=skiprows, sheet_name=sheet_name, dtype=str, nrows=nrows)
-
-# remove line breaks from column names
-df.columns = df.columns.str.replace("\n", "")
+        raise Exception(
+            "Sorry, Excel Columns not yet defined in Script. Only version 6_DE and 5_1_DE implemented."
+        )
 
 
-def dataframe_to_markdown(df):
+def read_infosec(excel_inidces: dict) -> pd.DataFrame:
+    df = pd.read_excel(
+        args.input,
+        skiprows=excel_inidces["skiprows"],
+        sheet_name=excel_inidces["sheet_infosec"],
+        nrows=excel_inidces["nrows_infosec"],
+        dtype=str,
+    )
+    assert type(df) == pd.DataFrame
+    df.columns = df.columns.str.replace("\n", "")
+    return df
+
+def read_prototype(excel_inidces: dict) -> pd.DataFrame:
+    df_prototype = pd.read_excel(
+        args.input,
+        skiprows=excel_inidces["skiprows"],
+        sheet_name=excel_inidces["sheet_prototype"],
+        nrows=excel_inidces["nrows_prototype"],
+        dtype=str,
+    )
+    assert type(df_prototype) == pd.DataFrame
+    df_prototype.columns = df_prototype.columns.str.replace("\n", "")
+    return df_prototype
+
+def read_data_protection(excel_inidces: dict) -> pd.DataFrame:
+    df_data_protection = pd.read_excel(
+        args.input,
+        skiprows=excel_inidces["skiprows"],
+        sheet_name=excel_inidces["sheet_data_protection"],
+        nrows=excel_inidces["nrows_data_protection"],
+        dtype=str,
+    )
+    assert type(df_data_protection) == pd.DataFrame
+    df_data_protection.columns = df_data_protection.columns.str.replace("\n", "")
+    return df_data_protection
+
+
+
+def dataframe_to_markdown(df: pd.DataFrame, sheet:str = "infosec") -> str:
     markdown_lines = []
     for _, row in df.iterrows():
-        levels = row[df.columns[column_indices["controlnum"]]].count(".") + 1
+        levels = row[df.columns[excel_inidces["controlnum"]]].count(".") + 1
         header = "#" * levels
         markdown_lines.append(
-            f"{header} {row[column_indices["controlnum"]]} {row[column_indices["controlquestion"]]}"
+            f"{header} {row[excel_inidces["controlnum"]]} {row[excel_inidces["controlquestion"]]}"
         )
-        if levels > 2:
-            description = f"""
-**{df.columns[column_indices["goal"]]}**
+        dscr =""
+        if (levels > 2) & (sheet == "infosec"):
+            # Template String for infosec and prototype
+            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
+            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_must"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_must"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_should"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_should"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_high"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_high"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_very_high"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_very_high"]]}\n"""
+        if (levels > 2) & (sheet == "prototype"):
+            # Template String for data protection
+            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
+            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_must"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_must"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_should"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_should"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_high"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_high"]]}\n"""
+        if (levels > 1) & (sheet == "data_protection") & ("5_1" in args.version):
+            # Template Strings for data protection
+            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
+            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
+        if (levels > 1) & (sheet == "data_protection") & ("6" in args.version):
+            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
+            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
+            dscr += f"""\n **{df.columns[excel_inidces["requirement_must"]]}**\n"""
+            dscr += f"""\n {row[excel_inidces["requirement_must"]]}\n"""
 
-{row[column_indices["goal"]]}
 
-**{df.columns[column_indices["requirement_must"]]}**
-
-{row[column_indices["requirement_must"]]}
-
-**{df.columns[column_indices["requirement_should"]]}**
-
-{row[column_indices["requirement_should"]]}
-
-**{df.columns[column_indices["requirement_high"]]}**
-
-{row[column_indices["requirement_high"]]}
-
-**{df.columns[column_indices["requirement_very_high"]]}**
-
-{row[column_indices["requirement_very_high"]]}
-"""
-            markdown_lines.append(description)
-
+        markdown_lines.append(dscr)
+    markdown_lines.append("\n")
     return "\n".join(markdown_lines)
 
+df = read_infosec(excel_inidces)
 output = dataframe_to_markdown(df)
+if args.prototype:
+    df_prototype = read_prototype(excel_inidces)
+    output += dataframe_to_markdown(df_prototype, sheet = "prototype")
+if args.data_protection:
+    df_data = read_data_protection(excel_inidces)
+    output += dataframe_to_markdown(df_data, sheet = "data_protection")
 
+# fix formatting issues
 # replace all kinds of hyphens with ascii symbols
 output = re.sub(r"[‐᠆﹣－⁃−–]+", "-", output)
 # replace non breaking space with whitespace
 output = re.sub(r"[ ]+", " ", output)
 # make items starting with '-' subitems (some are not indented)
 output = output.replace("\n-", "\n  -")
+# some lines end with a line break, resulting in double line breaks
+output = re.sub(r"\n\n\n", "\n\n", output)
 
+print(output)
 with open(args.output, "w") as f:
     f.write(output)
