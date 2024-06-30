@@ -44,7 +44,7 @@ args = parser.parse_args()
 
 
 def c2int(char: str) -> int:
-    return ord(char) - 64
+    return ord(char) - ord("A")
 
 
 excel_inidces = {
@@ -57,7 +57,7 @@ excel_inidces = {
     "nrows_prototype": 30,
     "controlnum": 3,  # D
     "controlquestion": 8,
-    "goal": ord("I") - 64,
+    "goal": c2int("I"),
     "requirement_must": 10,
     "requirement_should": 11,
     "requirement_high": 12,
@@ -71,7 +71,7 @@ match args.version:
         excel_inidces = {
             "skiprows": 1,  # first row is a title
             "sheet_infosec": 4,  # 5th sheet
-            "nrows_infosec": None,
+            "nrows_infosec": 64,
             "sheet_prototype": 5,
             "nrows_prototype": None,
             "sheet_data_protection": 6,
@@ -83,6 +83,8 @@ match args.version:
             "requirement_should": 10,
             "requirement_high": 11,
             "requirement_very_high": 12,
+            "documentation": c2int("E"),
+            "proof": c2int("F"),
         }  # For ISA6_DE_6
     case "5_1_DE":
         pass  # default dict
@@ -92,12 +94,14 @@ match args.version:
         )
 
 
-def read_infosec(excel_inidces: dict) -> pd.DataFrame:
+def _read_excel_as_dataframe(
+    excel_inidces: dict, sheet, skiprows, nrows
+) -> pd.DataFrame:
     df = pd.read_excel(
         args.input,
-        skiprows=excel_inidces["skiprows"],
-        sheet_name=excel_inidces["sheet_infosec"],
-        nrows=excel_inidces["nrows_infosec"],
+        skiprows=skiprows,
+        sheet_name=sheet,
+        nrows=nrows,
         dtype=str,
     )
     assert type(df) == pd.DataFrame
@@ -105,82 +109,131 @@ def read_infosec(excel_inidces: dict) -> pd.DataFrame:
     return df
 
 
-def read_prototype(excel_inidces: dict) -> pd.DataFrame:
-    df_prototype = pd.read_excel(
-        args.input,
+def read_infosec(excel_inidces: dict) -> pd.DataFrame:
+    df = _read_excel_as_dataframe(
+        excel_inidces,
+        sheet=excel_inidces["sheet_infosec"],
         skiprows=excel_inidces["skiprows"],
-        sheet_name=excel_inidces["sheet_prototype"],
-        nrows=excel_inidces["nrows_prototype"],
-        dtype=str,
+        nrows=excel_inidces["nrows_infosec"],
     )
-    assert type(df_prototype) == pd.DataFrame
-    df_prototype.columns = df_prototype.columns.str.replace("\n", "")
-    return df_prototype
+    return df
+
+
+def read_prototype(excel_inidces: dict) -> pd.DataFrame:
+    df = _read_excel_as_dataframe(
+        excel_inidces,
+        sheet=excel_inidces["sheet_prototype"],
+        skiprows=excel_inidces["skiprows"],
+        nrows=excel_inidces["nrows_prototype"],
+    )
+    return df
 
 
 def read_data_protection(excel_inidces: dict) -> pd.DataFrame:
-    df_data_protection = pd.read_excel(
-        args.input,
+    df = _read_excel_as_dataframe(
+        excel_inidces,
         skiprows=excel_inidces["skiprows"],
-        sheet_name=excel_inidces["sheet_data_protection"],
+        sheet=excel_inidces["sheet_data_protection"],
         nrows=excel_inidces["nrows_data_protection"],
-        dtype=str,
     )
-    assert type(df_data_protection) == pd.DataFrame
-    df_data_protection.columns = df_data_protection.columns.str.replace("\n", "")
-    return df_data_protection
+    return df
+
+
+def fix_excel_formatting(output: str):
+    # fix formatting issues
+    # replace all kinds of hyphens with ascii symbols
+    output = re.sub(r"[‐᠆﹣－⁃−–]+", "-", output)
+    # replace non breaking space with whitespace
+    output = re.sub(r"[ ]+", " ", output)
+    # # make items starting with '-' subitems (some are not indented)
+    output = output.replace("\n-", "\n  -")
+    # some lines end with a line break, resulting in double line breaks
+    output = re.sub(r"\n\n\n", "\n\n", output)
+    # some bullet points start with a " +"
+    output = re.sub(r" \+", "+", output)
+    # make all bullet points -, subpoints are indented
+    output = re.sub(r"\n\+", "\n-", output)
+    return output
 
 
 def dataframe_to_markdown(df: pd.DataFrame, sheet: str = "infosec") -> str:
     markdown_lines = []
     for _, row in df.iterrows():
+        print(row[df.columns[excel_inidces["controlnum"]]])
         levels = row[df.columns[excel_inidces["controlnum"]]].count(".") + 1
         header = "#" * (levels + 1)
         markdown_lines.append(
             f"{header} {row[excel_inidces["controlnum"]]} {row[excel_inidces["controlquestion"]]}"
         )
-        dscr = ""
+        control_descrition = ""
+        implementation = ""
         if (levels > 2) & (sheet == "infosec"):
             # Template String for infosec and prototype
-            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
-            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_must"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_must"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_should"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_should"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_high"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_high"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_very_high"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_very_high"]]}\n"""
+            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
+            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_must"]]}**\n"""
+            )
+            control_descrition += f"""\n{row[excel_inidces["requirement_must"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_should"]]}**\n"""
+            )
+            control_descrition += f"""\n{row[excel_inidces["requirement_should"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_high"]]}**\n"""
+            )
+            control_descrition += f"""\n{row[excel_inidces["requirement_high"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_very_high"]]}**\n"""
+            )
+            control_descrition += (
+                f"""\n{row[excel_inidces["requirement_very_high"]]}\n"""
+            )
+            implementation += (
+                f"""\n**{df.columns[excel_inidces["documentation"]]}**\n"""
+            )
+            implementation += f"""\n{row[excel_inidces["documentation"]]}\n"""
+            implementation += f"""\n**{df.columns[excel_inidces["proof"]]}**\n"""
+            implementation += f"""\n{row[excel_inidces["proof"]]}\n"""
         if (levels > 2) & (sheet == "prototype"):
             # Template String for data protection
-            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
-            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_must"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_must"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_should"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_should"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_high"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_high"]]}\n"""
+            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
+            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_must"]]}**\n"""
+            )
+            control_descrition += f"""\n{row[excel_inidces["requirement_must"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_should"]]}**\n"""
+            )
+            control_descrition += f"""\n{row[excel_inidces["requirement_should"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_high"]]}**\n"""
+            )
+            control_descrition += f"""\n{row[excel_inidces["requirement_high"]]}\n"""
         if (levels > 1) & (sheet == "data_protection") & ("5_1" in args.version):
             # Template Strings for data protection
-            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
-            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
+            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
+            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
         if (levels > 1) & (sheet == "data_protection") & ("6" in args.version):
-            dscr += f"""\n **{df.columns[excel_inidces["goal"]]}**"""
-            dscr += f"""\n {row[excel_inidces["goal"]]}\n"""
-            dscr += f"""\n **{df.columns[excel_inidces["requirement_must"]]}**\n"""
-            dscr += f"""\n {row[excel_inidces["requirement_must"]]}\n"""
+            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
+            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
+            control_descrition += (
+                f"""\n**{df.columns[excel_inidces["requirement_must"]]}**\n"""
+            )
+            control_descrition += f"""\n{row[excel_inidces["requirement_must"]]}\n"""
 
-        markdown_lines.append(dscr)
+        control_descrition = fix_excel_formatting(control_descrition)
+        markdown_lines.append(control_descrition + implementation)
     markdown_lines.append("\n")
     return "\n".join(markdown_lines)
 
 
 df = read_infosec(excel_inidces)
 
-basename = (".").join(args.input.split(".")[:-1])
-output = f"# {basename}\n\n"
+# basename = (".").join(args.input.split(".")[:-1])
+# output = f"# {basename}\n\n"
+output = ""
 
 output += dataframe_to_markdown(df)
 if args.prototype:
@@ -190,19 +243,6 @@ if args.data_protection:
     df_data = read_data_protection(excel_inidces)
     output += dataframe_to_markdown(df_data, sheet="data_protection")
 
-# fix formatting issues
-# replace all kinds of hyphens with ascii symbols
-output = re.sub(r"[‐᠆﹣－⁃−–]+", "-", output)
-# replace non breaking space with whitespace
-output = re.sub(r"[ ]+", " ", output)
-# make items starting with '-' subitems (some are not indented)
-output = output.replace("\n-", "\n  -")
-# some lines end with a line break, resulting in double line breaks
-output = re.sub(r"\n\n\n", "\n\n", output)
-# some bullet points start with a " +"
-output = re.sub(r" \+", "+", output)
-# make all bullet points -, subpoints are indented
-output = re.sub(r"\n\+", "\n-", output)
 
 print(output)
 with open(args.output, "w") as f:
