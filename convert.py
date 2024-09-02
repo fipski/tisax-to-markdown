@@ -62,6 +62,8 @@ excel_inidces = {
     "requirement_should": 11,
     "requirement_high": 12,
     "requirement_very_high": 13,
+    "documentation": c2int("F"),
+    "proof": c2int("G"),
 }  # For ISA6_DE_6
 
 
