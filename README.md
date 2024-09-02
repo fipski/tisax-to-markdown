@@ -5,7 +5,7 @@ The Information Security Standard TISAX (VDA ISA) is distributed as a Microsoft 
 see [portal.enx.com/en-us/TISAX/downloads/](https://portal.enx.com/en-us/TISAX/downloads/).
 For Reports and a Statement of Applicability you might need the controls as plain text.
 
-I assume Most people manage their Information Security office Macros and don't need this 🤯.
+I assume Most people manage their Information Security with office Macros and don't need this 🤯.
 
 This script converts the Controls and Requirements to Markdown, you could use [pandoc](https://www.pandoc.org/) to convert them to anything else.
 
