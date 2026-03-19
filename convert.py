@@ -165,68 +165,69 @@ def dataframe_to_markdown(df: pd.DataFrame, sheet: str = "infosec") -> str:
         levels = row[df.columns[excel_inidces["controlnum"]]].count(".") + 1
         header = "#" * (levels + 1)
         markdown_lines.append(
-            f"{header} {row[excel_inidces["controlnum"]]} {row[excel_inidces["controlquestion"]]}"
+            f"{header} {row.iloc[excel_inidces["controlnum"]]} {row.iloc[excel_inidces["controlquestion"]]}"
         )
-        control_descrition = ""
+        control_description = ""
         implementation = ""
-        if (levels > 2) & (sheet == "infosec"):
+        if (levels > 2) and (sheet == "infosec"):
             # Template String for infosec and prototype
-            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
-            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
-            control_descrition += (
+            control_description += f"\n**{df.columns[excel_inidces['goal']]}**"
+            control_description += f"\n{row.iloc[excel_inidces['goal']]}\n"
+            control_description += f"\n**{df.columns[excel_inidces['requirement_must']]}**\n"
+            control_description += f"\n{row.iloc[excel_inidces['requirement_must']]}\n"
+            control_description += f"\n**{df.columns[excel_inidces['requirement_should']]}**\n"
+            control_description += f"\n{row.iloc[excel_inidces['requirement_should']]}\n"
+            control_description += f"\n**{df.columns[excel_inidces['requirement_high']]}**\n"
+            control_description += f"\n{row.iloc[excel_inidces['requirement_high']]}\n"
+            control_description += f"\n**{df.columns[excel_inidces['requirement_very_high']]}**\n"
+            control_description += f"\n{row.iloc[excel_inidces['requirement_very_high']]}\n"
+            implementation += f"\n**{df.columns[excel_inidces['documentation']]}**\n"
+            implementation += f"\n{row.iloc[excel_inidces['documentation']]}\n"
+            implementation += f"\n**{df.columns[excel_inidces['proof']]}**\n"
+            implementation += f"\n{row.iloc[excel_inidces['proof']]}\n"
+            # control_description += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
+            # control_description += f"""\n{row[excel_inidces["goal"]]}\n"""
+            # control_description += (
+            #     f"""\n**{df.columns[excel_inidces["requirement_must"]]}**\n"""
+            # )
+            # control_description += f"""\n{row[excel_inidces["requirement_must"]]}\n"""
+            # control_description += (
+            #     f"""\n**{df.columns[excel_inidces["requirement_should"]]}**\n"""
+            # )
+            # control_description += f"""\n{row[excel_inidces["requirement_should"]]}\n"""
+            # control_description += (
+            #     f"""\n**{df.columns[excel_inidces["requirement_high"]]}**\n"""
+            # )
+            # control_description += f"""\n{row[excel_inidces["requirement_high"]]}\n"""
+            # control_description += (
+            #     f"""\n**{df.columns[excel_inidces["requirement_very_high"]]}**\n"""
+            # )
+            # control_description += (
+            #     f"""\n{row[excel_inidces["requirement_very_high"]]}\n"""
+            # )
+            # implementation += (
+            #     f"""\n**{df.columns[excel_inidces["documentation"]]}**\n"""
+            # )
+            # implementation += f"""\n{row[excel_inidces["documentation"]]}\n"""
+            # implementation += f"""\n**{df.columns[excel_inidces["proof"]]}**\n"""
+            # implementation += f"""\n{row[excel_inidces["proof"]]}\n"""
+        if (levels > 2) and (sheet == "prototype"):
+            control_description += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
+            control_description += f"""\n{row.iloc[excel_inidces["goal"]]}\n"""
+            control_description += (
                 f"""\n**{df.columns[excel_inidces["requirement_must"]]}**\n"""
             )
-            control_descrition += f"""\n{row[excel_inidces["requirement_must"]]}\n"""
-            control_descrition += (
+            control_description += f"""\n{row.iloc[excel_inidces["requirement_must"]]}\n"""
+            control_description += (
                 f"""\n**{df.columns[excel_inidces["requirement_should"]]}**\n"""
             )
-            control_descrition += f"""\n{row[excel_inidces["requirement_should"]]}\n"""
-            control_descrition += (
+            control_description += f"""\n{row.iloc[excel_inidces["requirement_should"]]}\n"""
+            control_description += (
                 f"""\n**{df.columns[excel_inidces["requirement_high"]]}**\n"""
             )
-            control_descrition += f"""\n{row[excel_inidces["requirement_high"]]}\n"""
-            control_descrition += (
-                f"""\n**{df.columns[excel_inidces["requirement_very_high"]]}**\n"""
-            )
-            control_descrition += (
-                f"""\n{row[excel_inidces["requirement_very_high"]]}\n"""
-            )
-            implementation += (
-                f"""\n**{df.columns[excel_inidces["documentation"]]}**\n"""
-            )
-            implementation += f"""\n{row[excel_inidces["documentation"]]}\n"""
-            implementation += f"""\n**{df.columns[excel_inidces["proof"]]}**\n"""
-            implementation += f"""\n{row[excel_inidces["proof"]]}\n"""
-        if (levels > 2) & (sheet == "prototype"):
-            # Template String for data protection
-            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
-            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
-            control_descrition += (
-                f"""\n**{df.columns[excel_inidces["requirement_must"]]}**\n"""
-            )
-            control_descrition += f"""\n{row[excel_inidces["requirement_must"]]}\n"""
-            control_descrition += (
-                f"""\n**{df.columns[excel_inidces["requirement_should"]]}**\n"""
-            )
-            control_descrition += f"""\n{row[excel_inidces["requirement_should"]]}\n"""
-            control_descrition += (
-                f"""\n**{df.columns[excel_inidces["requirement_high"]]}**\n"""
-            )
-            control_descrition += f"""\n{row[excel_inidces["requirement_high"]]}\n"""
-        if (levels > 1) & (sheet == "data_protection") & ("5_1" in args.version):
-            # Template Strings for data protection
-            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
-            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
-        if (levels > 1) & (sheet == "data_protection") & ("6" in args.version):
-            control_descrition += f"""\n**{df.columns[excel_inidces["goal"]]}**"""
-            control_descrition += f"""\n{row[excel_inidces["goal"]]}\n"""
-            control_descrition += (
-                f"""\n**{df.columns[excel_inidces["requirement_must"]]}**\n"""
-            )
-            control_descrition += f"""\n{row[excel_inidces["requirement_must"]]}\n"""
-
-        control_descrition = fix_excel_formatting(control_descrition)
-        markdown_lines.append(control_descrition + implementation)
+            control_description += f"""\n{row.iloc[excel_inidces["requirement_high"]]}\n"""
+        control_description = fix_excel_formatting(control_description)
+        markdown_lines.append(control_description + implementation)
     markdown_lines.append("\n")
     return "\n".join(markdown_lines)
 
